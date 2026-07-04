@@ -1,10 +1,10 @@
 TERMUX_PKG_HOMEPAGE=https://github.com/flowexec/flow
 TERMUX_PKG_DESCRIPTION="Local developer automation platform that flows with you."
 TERMUX_PKG_LICENSE="Apache-2.0"
-TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="1.1.2"
+TERMUX_PKG_MAINTAINER="@termux-user-repository"
+TERMUX_PKG_VERSION="2.0.0"
 TERMUX_PKG_SRCURL=https://github.com/flowexec/flow/archive/v${TERMUX_PKG_VERSION}.tar.gz
-TERMUX_PKG_SHA256=b86762a08b913cd295a9f5616ca140cd8e4732c14395c2316a07105da167ccf0
+TERMUX_PKG_SHA256=3ebf6f8b518909d64339f5bea7ec6fad19c2ea4e25fcb647d6a2d2f20b37bf2a
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_UPDATE_TAG_TYPE="latest-release-tag"

@@ -104,7 +104,7 @@ _setup_toolchain_gcc_envs_with_fc() {
 
 _override_configure_cmake_for_gcc() {
 	termux_step_configure_cmake() {
-		if [ "$TERMUX_CMAKE_BUILD" = Ninja ]; then
+		if [ "$TERMUX_PKG_CMAKE_BUILD" = Ninja ]; then
 			MAKE_PROGRAM_PATH=$(command -v ninja)
 		else
 			MAKE_PROGRAM_PATH=$(command -v make)
@@ -132,7 +132,7 @@ _override_configure_cmake_for_gcc() {
 
 		# XXX: CMAKE_{AR,RANLIB} needed for at least jsoncpp build to not
 		# pick up cross compiled binutils tool in $TERMUX_PREFIX/bin:
-		cmake -G "$TERMUX_CMAKE_BUILD" "$TERMUX_PKG_SRCDIR" \
+		cmake -G "$TERMUX_PKG_CMAKE_BUILD" "$TERMUX_PKG_SRCDIR" \
 			-DCMAKE_AR="$(command -v $AR)" \
 			-DCMAKE_UNAME="$(command -v uname)" \
 			-DCMAKE_RANLIB="$(command -v $RANLIB)" \
@@ -304,6 +304,18 @@ _setup_toolchain_ndk_gcc_15() {
 	local GCC_VERSION=$(jq -r '.["15"].version' $PREBUILT_GCC_JSON)
 	local GCC_TOOLCHAIN_REVISION=$(jq -r '.["15"].revision' $PREBUILT_GCC_JSON)
 	local GCC_PREBUILT_SHA256=$(jq -r ".[\"15\"].checksums.$TERMUX_ARCH" $PREBUILT_GCC_JSON)
+
+	_setup_standalone_toolchain_current_ndk_newer_gcc "$GCC_VERSION" "$GCC_TOOLCHAIN_REVISION" "$GCC_PREBUILT_SHA256" "$GCC_TOOLCHAIN_VERSION"
+	_setup_toolchain_gcc_envs_with_fc
+}
+
+_setup_toolchain_ndk_gcc_16() {
+	local GCC_TOOLCHAIN_VERSION=0
+
+    local PREBUILT_GCC_JSON="$TERMUX_SCRIPTDIR/common-files/prebuilt-gcc.json"
+	local GCC_VERSION=$(jq -r '.["16"].version' $PREBUILT_GCC_JSON)
+	local GCC_TOOLCHAIN_REVISION=$(jq -r '.["16"].revision' $PREBUILT_GCC_JSON)
+	local GCC_PREBUILT_SHA256=$(jq -r ".[\"16\"].checksums.$TERMUX_ARCH" $PREBUILT_GCC_JSON)
 
 	_setup_standalone_toolchain_current_ndk_newer_gcc "$GCC_VERSION" "$GCC_TOOLCHAIN_REVISION" "$GCC_PREBUILT_SHA256" "$GCC_TOOLCHAIN_VERSION"
 	_setup_toolchain_gcc_envs_with_fc

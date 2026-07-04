@@ -2,31 +2,21 @@ TERMUX_PKG_HOMEPAGE=https://www.rust-lang.org/
 TERMUX_PKG_DESCRIPTION="Rust compiler and utilities (nightly version)"
 TERMUX_PKG_LICENSE="MIT"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION="1.94.0-2025.12.06-nightly"
+TERMUX_PKG_VERSION="1.98.0-2026.06.24-nightly"
 _RUST_VERSION=$(echo $TERMUX_PKG_VERSION | cut -d- -f1)
 _DATE="$(echo $TERMUX_PKG_VERSION | cut -d- -f2 | sed 's|\.|-|g')"
-_LLVM_MAJOR_VERSION=$(. $TERMUX_SCRIPTDIR/packages/libllvm/build.sh; echo $LLVM_MAJOR_VERSION)
-_LLVM_MAJOR_VERSION_NEXT=$((_LLVM_MAJOR_VERSION + 1))
-_LZMA_VERSION=$(. $TERMUX_SCRIPTDIR/packages/liblzma/build.sh; echo $TERMUX_PKG_VERSION)
 TERMUX_PKG_SRCURL=https://static.rust-lang.org/dist/$_DATE/rustc-nightly-src.tar.xz
-TERMUX_PKG_SHA256=a945b9b9f3acace3687c50d459b9c0529e0cd91e2c3ca127c8e2a6c290a3b016
-TERMUX_PKG_DEPENDS="clang, libandroid-execinfo, libc++, libllvm (<< ${_LLVM_MAJOR_VERSION_NEXT}), lld, openssl, zlib"
+TERMUX_PKG_SHA256=2694d554dfb07af652bae0ec2f2d0cf56ee88beaadeda1dd978f0b06c1919f36
+TERMUX_PKG_DEPENDS="clang, libandroid-execinfo, libc++, libllvm (<< ${TERMUX_LLVM_NEXT_MAJOR_VERSION}), lld, openssl, zlib"
 TERMUX_PKG_BUILD_DEPENDS="wasi-libc"
 TERMUX_PKG_NO_REPLACE_GUESS_SCRIPTS=true
 TERMUX_PKG_NO_STATICSPLIT=true
 TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_RM_AFTER_INSTALL="
 bin/llc
-bin/lld
 bin/llvm-*
 bin/opt
 bin/sh
-lib/liblzma.a
-lib/liblzma.so
-lib/liblzma.so.${_LZMA_VERSION}
-lib/libtinfo.so.6
-lib/libz.so
-lib/libz.so.1
 share/wasi-sysroot
 "
 
@@ -85,12 +75,38 @@ termux_step_pre_configure() {
 	sed "s|@TERMUX_PKG_API_LEVEL@|${TERMUX_PKG_API_LEVEL}|g" "${p}" \
 		| patch --silent -p1
 
+	# assist with downstream patch methods that bulk-replace
+	# string 'com.termux' throughout the repository
+	local original_prefix_component_one="/data/data/com."
+	local original_prefix_component_two="termux/files/usr"
+	local original_prefix="${original_prefix_component_one}${original_prefix_component_two}"
+	if [[ "$TERMUX_PREFIX" != "$original_prefix" ]]; then
+		local patch="$TERMUX_PKG_BUILDER_DIR/force-allow-edit-vendor.diff"
+		echo "Applying patch: $(basename "$patch")"
+		patch --silent -p1 < "$patch"
+
+		local crate=openssl-probe
+		local crate_src_dir="$(realpath "$(find "$TERMUX_PKG_SRCDIR/vendor" -name "$crate"'*' | sort | tail -n1)")"
+		local crate_dest_dir="$crate_src_dir-custom-termux-prefix"
+		cp -r "$crate_src_dir" "$crate_dest_dir"
+
+		echo "Replacing '$original_prefix' with '$TERMUX_PREFIX' in '$crate_dest_dir/src/lib.rs'"
+		sed -i -e "s|$original_prefix|$TERMUX_PREFIX|g" "$crate_dest_dir/src/lib.rs"
+
+		local dir
+		for dir in "$TERMUX_PKG_SRCDIR"/{,src/tools/cargo,src/tools/miri}; do
+			echo '' >> "$dir/Cargo.toml"
+			echo '[patch.crates-io]' >> "$dir/Cargo.toml"
+			echo "$crate = { path = \"${crate_dest_dir}\" }" >> "$dir/Cargo.toml"
+		done
+	fi
+
 	export RUST_LIBDIR=$TERMUX_PKG_BUILDDIR/_lib
 	mkdir -p $RUST_LIBDIR
 
 	# we can't use -L$PREFIX/lib since it breaks things but we need to link against libLLVM-9.so
 	ln -vfst "${RUST_LIBDIR}" \
-		${TERMUX_PREFIX}/lib/libLLVM-${_LLVM_MAJOR_VERSION}.so
+		${TERMUX_PREFIX}/lib/libLLVM-${TERMUX_LLVM_MAJOR_VERSION}.so
 
 	# https://github.com/termux/termux-packages/issues/18379
 	# NDK r26 multiple ld.lld: error: undefined symbol: __cxa_*
@@ -110,13 +126,13 @@ termux_step_pre_configure() {
 }
 
 termux_step_configure() {
-	# Install llvm-20
-	local _line="deb [arch=amd64] http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main"
+	# Install llvm-21
+	local _line="deb [arch=amd64] http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
 	local _file="/etc/apt/sources.list.d/apt-llvm-org-rustc-nightly.list"
 	__sudo grep -qF -- "$_line" "$_file" || \
 		echo "$_line" | __sudo tee -a "$_file"
 	__sudo apt update
-	__sudo apt install -y llvm-20-dev llvm-20-tools
+	__sudo apt install -y llvm-21-dev llvm-21-tools
 
 	# Use nightly toolchain to build nightly toolchain
 	if [[ "${TERMUX_ON_DEVICE_BUILD}" == "false" ]]; then
@@ -213,6 +229,7 @@ termux_step_make_install() {
 	# due to CI and on device build error:
 	# error: could not document `std`
 	"${TERMUX_PKG_SRCDIR}/x.py" install -j "${TERMUX_PKG_MAKE_PROCESSES}" --target wasm32-unknown-unknown --stage 2 std
+	"${TERMUX_PKG_SRCDIR}/x.py" install -j "${TERMUX_PKG_MAKE_PROCESSES}" --target wasm32v1-none --stage 2 std
 	[[ ! -e "${TERMUX_PREFIX}/share/wasi-sysroot" ]] && termux_error_exit "wasi-sysroot not found"
 	"${TERMUX_PKG_SRCDIR}/x.py" install -j "${TERMUX_PKG_MAKE_PROCESSES}" --target wasm32-wasip1 --stage 2 std
 	"${TERMUX_PKG_SRCDIR}/x.py" install -j "${TERMUX_PKG_MAKE_PROCESSES}" --target wasm32-wasip2 --stage 2 std

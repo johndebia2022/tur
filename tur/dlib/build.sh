@@ -2,10 +2,11 @@ TERMUX_PKG_HOMEPAGE=http://dlib.net/
 TERMUX_PKG_DESCRIPTION="a modern C++ toolkit containing machine learning algorithms and tools for creating complex software in C++ to solve real world problems"
 TERMUX_PKG_LICENSE="MIT"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION="20.0"
-TERMUX_PKG_SRCURL=https://github.com/davisking/dlib/archive/refs/tags/v$TERMUX_PKG_VERSION.tar.gz
-TERMUX_PKG_SHA256=705749801c7896f5c19c253b6be639f4cef2c1831a9606955f01b600b3d86d80
-TERMUX_PKG_DEPENDS="libx11, libxcb, libopenblas, python"
+TERMUX_PKG_VERSION="20.0.1"
+TERMUX_PKG_REVISION=1
+TERMUX_PKG_SRCURL="https://github.com/davisking/dlib/archive/refs/tags/v$TERMUX_PKG_VERSION.tar.gz"
+TERMUX_PKG_SHA256=dab5b4ec4b68bd7dc128a1fb7900723f89d2da107e44cd5def7d38fc57252a9d
+TERMUX_PKG_DEPENDS="libx11, libxcb, libopenblas, libpng, libjpeg-turbo, libjxl, libwebp, python"
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_AUTO_UPDATE=true
 
@@ -20,11 +21,11 @@ termux_step_pre_configure() {
 	termux_setup_python_pip
 
 	LDFLAGS+=" -lpython${TERMUX_PYTHON_VERSION}"
-	build-pip install wheel looseversion
+	build-pip install wheel
 }
 
 termux_step_configure() {
-	if [ "$TERMUX_CMAKE_BUILD" = Ninja ]; then
+	if [ "$TERMUX_PKG_CMAKE_BUILD" = Ninja ]; then
 		MAKE_PROGRAM_PATH=$(command -v ninja)
 	else
 		MAKE_PROGRAM_PATH=$(command -v make)
@@ -38,7 +39,7 @@ termux_step_configure() {
 
 termux_step_make() {
 	python setup.py bdist_wheel \
-			-G $TERMUX_CMAKE_BUILD \
+			-G $TERMUX_PKG_CMAKE_BUILD \
 			--set CMAKE_AR="$(command -v $AR)" \
 			--set CMAKE_UNAME="$(command -v uname)" \
 			--set CMAKE_RANLIB="$(command -v $RANLIB)" \
@@ -65,5 +66,5 @@ termux_step_make() {
 
 termux_step_make_install() {
 	export PYTHONPATH=$TERMUX_PREFIX/lib/python${TERMUX_PYTHON_VERSION}/site-packages
-	pip install --no-deps ./dist/*.whl --prefix=$TERMUX_PREFIX
+	pip install --force-reinstall --no-deps ./dist/*.whl --prefix=$TERMUX_PREFIX
 }

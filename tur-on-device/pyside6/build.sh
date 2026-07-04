@@ -6,18 +6,19 @@ TERMUX_PKG_LICENSE_FILE="
 LICENSES/GPL-3.0-only.txt
 LICENSES/Qt-GPL-exception-1.0.txt
 "
-TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="6.10.1"
+TERMUX_PKG_MAINTAINER="@termux-user-repository"
+TERMUX_PKG_VERSION="6.11.1"
+TERMUX_PKG_REVISION=4
 TERMUX_PKG_SRCURL="https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-$TERMUX_PKG_VERSION-src/pyside-setup-everywhere-src-$TERMUX_PKG_VERSION.tar.xz"
-TERMUX_PKG_SHA256=fd54f40853d61dfd845dbb40d4f89fbd63df5ed341b3d9a2c77bb5c947a0a838
+TERMUX_PKG_SHA256=6ffd9835bb0dd2c56f061d62f1616bb1707cfc0202b80e3165d6be087f3965e2
 TERMUX_PKG_AUTO_UPDATE=true
 # Some packaging code here is based on Arch Linux, other code is original
 # https://gitlab.archlinux.org/archlinux/packaging/packages/pyside6/-/blob/8a277986a1fec50c6d8479c5c1afa664d0e20347/PKGBUILD
 TERMUX_PKG_DEPENDS="libc++, python, qt6-qtbase, qt6-qtdeclarative, shiboken6"
-TERMUX_PKG_RECOMMENDS="qt6-qtcharts, qt6-qtmultimedia, qt6-qtnetworkauth, qt6-qtscxml, qt6-qtsvg, qt6-qttranslations, qt6-qtwebsockets, qt6-shadertools"
+TERMUX_PKG_RECOMMENDS="qt6-qtcharts, qt6-qtmultimedia, qt6-qtnetworkauth, qt6-qtscxml, qt6-qtsvg, qt6-qttranslations, qt6-qtwebchannel, qt6-qtwebsockets, qt6-shadertools"
 # error during configure if libllvm and libllvm-static are not both installed
-TERMUX_PKG_BUILD_DEPENDS="libllvm-static, python-numpy, qt6-qtcharts, qt6-qtmultimedia, qt6-qtnetworkauth, qt6-qtscxml, qt6-qtsvg, qt6-qttools, qt6-qtwebsockets, qt6-shadertools"
-TERMUX_PKG_PYTHON_COMMON_DEPS="requests"
+TERMUX_PKG_BUILD_DEPENDS="libllvm-static, python-numpy, qt6-qtcharts, qt6-qtmultimedia, qt6-qtnetworkauth, qt6-qtscxml, qt6-qtsvg, qt6-qttools, qt6-qtwebchannel, qt6-qtwebsockets, qt6-shadertools"
+TERMUX_PKG_PYTHON_COMMON_BUILD_DEPS="requests"
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DCMAKE_SYSTEM_NAME=Linux
 -DNUMPY_INCLUDE_DIR=$TERMUX_PREFIX/lib/python$TERMUX_PYTHON_VERSION/site-packages/numpy/_core/include

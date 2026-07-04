@@ -1,9 +1,9 @@
 TERMUX_PKG_HOMEPAGE=https://www.winehq.org/
 TERMUX_PKG_DESCRIPTION="A compatibility layer for running Windows programs"
 TERMUX_PKG_LICENSE="LGPL-2.1"
-TERMUX_PKG_LICENSE_FILE="LICENSE, LICENSE.OLD, COPYING.LIB"
+TERMUX_PKG_LICENSE_FILE="LICENSE, NOTICES.md, COPYING.LIB"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION="11.0~rc1"
+TERMUX_PKG_VERSION="11.12"
 _REAL_VERSION="${TERMUX_PKG_VERSION/\~/-}"
 _VERSION_FOLDER="$(test "${_REAL_VERSION:3:1}" = 0 && echo ${_REAL_VERSION:0:4} || echo ${_REAL_VERSION:0:3}x)"
 TERMUX_PKG_SRCURL=(
@@ -11,11 +11,11 @@ TERMUX_PKG_SRCURL=(
 	https://github.com/wine-staging/wine-staging/archive/v$_REAL_VERSION.tar.gz
 )
 TERMUX_PKG_SHA256=(
-	84ede94dca350012ade19237fbde36117463593e37c94becbdab4c692025c78d
-	9c34f12c3098e621f6c11d9b1addaebe3985c5dba359801c9f8fac867f4e0131
+	d3bc091192d985846c9f20065cc81f21331f01e22b736b131e3449e1306671bc
+	9d72a105560a6e05fb37edf03e7521b2e3eafb49acd0ce5e344ef1bca5ff2730
 )
-TERMUX_PKG_DEPENDS="fontconfig, freetype, krb5, libandroid-spawn, libc++, libgmp, libgnutls, libxcb, libxcomposite, libxcursor, libxfixes, libxrender, opengl, pulseaudio, sdl2, vulkan-loader, xorg-xrandr"
-TERMUX_PKG_ANTI_BUILD_DEPENDS="vulkan-loader"
+TERMUX_PKG_DEPENDS="fontconfig, freetype, krb5, libandroid-spawn, libc++, libgmp, libgnutls, libxcb, libxcomposite, libxcursor, libxfixes, libxrender, opengl, pulseaudio, sdl2 | sdl2-compat, vulkan-loader, xorg-xrandr"
+TERMUX_PKG_ANTI_BUILD_DEPENDS="sdl2-compat, vulkan-loader"
 TERMUX_PKG_BUILD_DEPENDS="libandroid-spawn-static, vulkan-loader-generic"
 TERMUX_PKG_NO_STATICSPLIT=true
 TERMUX_PKG_AUTO_UPDATE=true
@@ -28,10 +28,12 @@ TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS="
 
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 ac_cv_header_linux_userfaultfd_h=no
+ac_cv_path_GRADLE=no
 enable_wineandroid_drv=no
 enable_tools=yes
 --prefix=$TERMUX_PREFIX/opt/wine-staging
 --exec-prefix=$TERMUX_PREFIX/opt/wine-staging
+--includedir=$TERMUX_PREFIX/opt/wine-staging/include
 --libdir=$TERMUX_PREFIX/opt/wine-staging/lib
 --with-wine-tools=$TERMUX_PKG_HOSTBUILD_DIR
 --enable-nls
@@ -79,12 +81,7 @@ enable_tools=yes
 --without-xxf86vm
 "
 
-# FIXME: This package doesn't work on arm since 8.x, but anyway
-# FIXME: I'd like to compile it.
-# TERMUX_PKG_EXCLUDED_ARCHES="arm"
-
 # Enable win64 on 64-bit arches.
-# TODO: Enable win32 after TUR has full support for mutilib
 if [ "$TERMUX_ARCH_BITS" = 64 ]; then
 	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-win64"
 fi
@@ -94,9 +91,13 @@ if [ "$TERMUX_ARCH" = "x86_64" ]; then
 	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --enable-archs=i386,x86_64"
 fi
 
+# FIXME: This package doesn't work on arm since 8.x, but anyway
+# FIXME: I'd like to compile it.
+# TERMUX_PKG_EXCLUDED_ARCHES="arm"
+
 termux_pkg_auto_update() {
 	local latest_tag
-	latest_tag="$(termux_github_api_get_tag "${TERMUX_PKG_SRCURL[1]}" "${TERMUX_PKG_UPDATE_TAG_TYPE}")"
+	latest_tag="$(TERMUX_PKG_SRCURL="${TERMUX_PKG_SRCURL[1]}" termux_github_api_get_tag)"
 	(( ${#latest_tag} )) || {
 		printf '%s\n' \
 		'WARN: Auto update failure!' \
@@ -127,11 +128,11 @@ termux_step_post_get_source() {
 
 _setup_llvm_mingw_toolchain() {
 	# LLVM-mingw's version number must not be the same as the NDK's.
-	local _llvm_mingw_version=16
-	local _version="20230614"
-	local _url="https://github.com/mstorsjo/llvm-mingw/releases/download/$_version/llvm-mingw-$_version-ucrt-ubuntu-20.04-x86_64.tar.xz"
+	local _llvm_mingw_version=22
+	local _version="20260519"
+	local _url="https://github.com/mstorsjo/llvm-mingw/releases/download/$_version/llvm-mingw-$_version-ucrt-ubuntu-22.04-x86_64.tar.xz"
 	local _path="$TERMUX_PKG_CACHEDIR/$(basename $_url)"
-	local _sha256sum=9ae925f9b205a92318010a396170e69f74be179ff549200e8122d3845ca243b8
+	local _sha256sum=a48f8c2801508272ccde64d87a26747ecc5306623d9a080a42ed80dc61f79fa2
 	termux_download $_url $_path $_sha256sum
 	local _extract_path="$TERMUX_PKG_CACHEDIR/llvm-mingw-toolchain-$_llvm_mingw_version"
 	if [ ! -d "$_extract_path" ]; then
@@ -147,7 +148,6 @@ termux_step_host_build() {
 	_setup_llvm_mingw_toolchain
 
 	# Make host wine-tools
-	(unset sudo; sudo apt update; sudo apt install libfreetype-dev:i386 -yqq)
 	"$TERMUX_PKG_SRCDIR/configure" ${TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS}
 	make -j "$TERMUX_PKG_MAKE_PROCESSES" __tooldeps__ nls/all
 }
@@ -168,6 +168,9 @@ termux_step_pre_configure() {
 	LDFLAGS="${LDFLAGS/-Wl,-z,relro,-z,now/}"
 
 	LDFLAGS+=" -landroid-spawn"
+
+	# https://github.com/termux-user-repository/tur/commit/9388bf3599bba33d7bd052cab0679fe9cd5917d2#commitcomment-176464300
+	LDFLAGS+=" -Wl,--rosegment"
 
 	if [ "$TERMUX_ARCH" = "x86_64" ]; then
 		mkdir -p "$TERMUX_PKG_TMPDIR/bin"
@@ -192,7 +195,9 @@ termux_step_make_install() {
 	mkdir -p $TERMUX_PREFIX/bin
 	cat << EOF > $TERMUX_PREFIX/bin/wine-staging
 #!$TERMUX_PREFIX/bin/env sh
+
 exec $TERMUX_PREFIX/opt/wine-staging/bin/wine "\$@"
+
 EOF
 	chmod +x $TERMUX_PREFIX/bin/wine-staging
 }

@@ -3,9 +3,9 @@ TERMUX_PKG_DESCRIPTION="The glamourous AI coding agent for your favourite termin
 TERMUX_PKG_LICENSE="custom"
 TERMUX_PKG_LICENSE_FILE="LICENSE.md"
 TERMUX_PKG_MAINTAINER="@ancientcatz"
-TERMUX_PKG_VERSION="0.19.4"
-TERMUX_PKG_SRCURL=https://github.com/charmbracelet/crush/archive/v${TERMUX_PKG_VERSION}.tar.gz
-TERMUX_PKG_SHA256=ef3112bd8fcb151939e5c3a5ffe0237433df1e497ed2bb7e5a172e06caafa83d
+TERMUX_PKG_VERSION="0.80.0"
+TERMUX_PKG_SRCURL=https://github.com/charmbracelet/crush/archive/refs/tags/v${TERMUX_PKG_VERSION}.tar.gz
+TERMUX_PKG_SHA256=8519390d12e0179ad736dfa8e25163f127e68e0b2667c96827c91090e19ca20e
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_AUTO_UPDATE=false
 TERMUX_PKG_UPDATE_TAG_TYPE="latest-release-tag"
@@ -15,8 +15,12 @@ termux_step_pre_configure() {
 }
 
 termux_step_make() {
-	export GOEXPERIMENT='greenteagc'
-	go build -ldflags "-s -w -X github.com/charmbracelet/crush/internal/version.Version=${TERMUX_PKG_VERSION}"
+	read -r commit_hash commit_date commit_epoch < <(
+		curl -s "https://api.github.com/repos/charmbracelet/crush/commits/v${TERMUX_PKG_VERSION}" \
+			| jq -r '[.sha, .commit.committer.date, (.commit.committer.date | fromdateiso8601)] | @tsv'
+	)
+	go build -trimpath -buildvcs=false -ldflags "-s -w -X github.com/charmbracelet/crush/internal/version.Version=${TERMUX_PKG_VERSION} -buildid="
+	touch -d "@${commit_epoch}" "crush"
 }
 
 termux_step_make_install() {

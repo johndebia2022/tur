@@ -2,10 +2,10 @@ TERMUX_PKG_HOMEPAGE=https://www.chromium.org/Home
 TERMUX_PKG_DESCRIPTION="Chromium web browser"
 TERMUX_PKG_LICENSE="BSD 3-Clause"
 TERMUX_PKG_MAINTAINER="@licy183"
-TERMUX_PKG_VERSION=142.0.7444.52
-TERMUX_PKG_SRCURL=https://commondatastorage.googleapis.com/chromium-browser-official/chromium-$TERMUX_PKG_VERSION.tar.xz
-TERMUX_PKG_SHA256=053c12ba6d0899d91ddb498268449f9f858e3b19a884f82396ab4fd9c0df24cc
-TERMUX_PKG_DEPENDS="atk, cups, dbus, fontconfig, gtk3, krb5, libc++, libevdev, libxkbcommon, libminizip, libnss, libx11, mesa, openssl, pango, pulseaudio, zlib"
+TERMUX_PKG_VERSION=149.0.7827.53
+TERMUX_PKG_SRCURL=https://commondatastorage.googleapis.com/chromium-browser-official/chromium-$TERMUX_PKG_VERSION-lite.tar.xz
+TERMUX_PKG_SHA256=dabb5f0af076a53f2eb436703affcb51a5e07e08d078b2f39a0430b1a5166c34
+TERMUX_PKG_DEPENDS="atk, cups, dbus, fontconfig, gtk3, krb5, libc++, libevdev, libxkbcommon, libminizip, libnss, libx11, mesa, openssl, pango, pipewire, pulseaudio, zlib"
 TERMUX_PKG_BUILD_DEPENDS="chromium-beta-host-tools, libffi-static"
 # TODO: Split chromium-common and chromium-headless
 # TERMUX_PKG_DEPENDS+=", chromium-common"
@@ -19,12 +19,27 @@ SYSTEM_LIBRARIES="    fontconfig"
 # TERMUX_PKG_DEPENDS="fontconfig"
 
 termux_step_post_get_source() {
+	# Apply patches related to c++23
+	local f
+	for f in $(find "$TERMUX_PKG_BUILDER_DIR/../chromium-beta-host-tools/cxx-patches" -maxdepth 1 -type f -name *.patch | sort); do
+		echo "Applying patch: $(basename $f)"
+		patch -p1 --silent < "$f"
+	done
+
 	# Apply patches related to chromium
 	local f
 	for f in $(find "$TERMUX_PKG_BUILDER_DIR/../chromium-beta-host-tools/cr-patches" -maxdepth 1 -type f -name *.patch | sort); do
 		echo "Applying patch: $(basename $f)"
 		patch -p1 --silent < "$f"
 	done
+
+	# Enable jumbo build for //components and //chrome
+	python \
+		"$TERMUX_SCRIPTDIR/common-files/rewrite_gn_jumbo.py" \
+		"$TERMUX_PKG_SRCDIR" \
+		--verbose \
+		--subdirs chrome \
+		--subdirs components
 
 	# Apply patches for jumbo build
 	local f
@@ -38,7 +53,7 @@ termux_step_post_get_source() {
 		$SYSTEM_LIBRARIES
 
 	# Remove the source file to keep more space
-	rm -f "$TERMUX_PKG_CACHEDIR/chromium-$TERMUX_PKG_VERSION.tar.xz"
+	rm -f "$TERMUX_PKG_CACHEDIR/chromium-$TERMUX_PKG_VERSION-lite.tar.xz"
 }
 
 termux_step_pre_configure() {
@@ -76,11 +91,9 @@ EOF
 	fi
 
 	# Remove termux's dummy pkg-config
-	local _target_pkg_config=$(command -v pkg-config)
-	local _host_pkg_config="$(cat $_target_pkg_config | grep exec | awk '{print $2}')"
 	rm -rf $TERMUX_PKG_CACHEDIR/host-pkg-config-bin
 	mkdir -p $TERMUX_PKG_CACHEDIR/host-pkg-config-bin
-	ln -s $_host_pkg_config $TERMUX_PKG_CACHEDIR/host-pkg-config-bin/pkg-config
+	ln -s /usr/bin/pkg-config "$TERMUX_PKG_CACHEDIR"/host-pkg-config-bin/pkg-config
 	export PATH="$TERMUX_PKG_CACHEDIR/host-pkg-config-bin:$PATH"
 
 	# Install amd64 rootfs
@@ -97,6 +110,38 @@ EOF
 	# Install nodejs
 	if [ ! -f "third_party/node/linux/node-linux-x64/bin/node" ]; then
 		./third_party/node/update_node_binaries
+	fi
+
+	# Download npm deps
+	if [ ! -d "third_party/node/node_modules" ]; then
+		local _npm_object_name=$(python -c "Var = str
+Str = str
+exec(open('$TERMUX_PKG_SRCDIR/DEPS').read())
+print(deps['src/third_party/node/node_modules']['objects'][0]['object_name'])
+")
+		local _npm_sha256sum=$(python -c "Var = str
+Str = str
+exec(open('$TERMUX_PKG_SRCDIR/DEPS').read())
+print(deps['src/third_party/node/node_modules']['objects'][0]['sha256sum'])
+")
+		local _npm_file="$TERMUX_PKG_SRCDIR/third_party/node/node_modules.tar.gz"
+		termux_download \
+			"https://commondatastorage.googleapis.com/chromium-nodejs/$_npm_object_name" \
+			"${_npm_file}" \
+			"${_npm_sha256sum}"
+		mkdir -p $TERMUX_PKG_SRCDIR/third_party/node/node_modules-tmp
+		tar -xf "$_npm_file" --strip-components=1 -C "$TERMUX_PKG_SRCDIR/third_party/node/node_modules-tmp"
+		mv "$TERMUX_PKG_SRCDIR/third_party/node/node_modules-tmp" "$TERMUX_PKG_SRCDIR/third_party/node/node_modules"
+	fi
+
+	# Sync rollup-related native deps in devtools
+	if [ ! -d "third_party/devtools-frontend/src/node_modules/@rollup/rollup-linux-x64-gnu" ]; then
+		if [ ! -f "third_party/devtools-frontend/src/third_party/rollup_libs/rollup.linux-x64-gnu.node" ]; then
+			termux_error_exit "rollup.linux-x64-gnu.node not found"
+		fi
+		pushd third_party/devtools-frontend/src
+		python3 scripts/deps/sync_rollup_libs.py
+		popd # third_party/devtools-frontend/src
 	fi
 
 	local CARGO_TARGET_NAME="${TERMUX_ARCH}-linux-android"
@@ -132,8 +177,6 @@ EOF
 		cp -Rf $TERMUX_PREFIX/include/* usr/include
 		cp -Rf $TERMUX_PREFIX/lib/* usr/lib
 		ln -sf /data ./data
-		# This is needed to build crashpad
-		rm -rf $TERMUX_PREFIX/include/spawn.h
 		# This is needed to build cups
 		cp -Rf $TERMUX_PREFIX/bin/cups-config usr/bin/
 		chmod +x usr/bin/cups-config
@@ -235,9 +278,6 @@ use_vaapi = false
 is_cfi = false
 use_cfi_icall = false
 use_thin_lto = false
-# OpenCL doesn't work out of box in Termux, use NNAPI instead
-build_tflite_with_opencl = false
-build_tflite_with_nnapi = true
 # Enable rust
 custom_target_rust_abi_target = \"$CARGO_TARGET_NAME\"
 clang_warning_suppression_file = \"\"
@@ -246,6 +286,9 @@ exclude_unwind_tables = false
 use_jumbo_build = true
 # Compile pdfium as a static library
 pdf_is_complete_lib = true
+# NDK r29 can't compile chromium with cxx23, see
+# https://github.com/termux/termux-packages/issues/28459#issuecomment-3991943697
+use_cxx23 = false
 " > $_common_args_file
 
 	if [ "$TERMUX_ARCH" = "arm" ]; then
@@ -348,8 +391,6 @@ termux_step_make_install() {
 
 		# Scripts
 		chrome-wrapper
-		xdg-mime
-		xdg-settings
 
 		# Angle
 		libEGL.so

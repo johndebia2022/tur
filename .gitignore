@@ -12,6 +12,7 @@
 /build-package.sh
 /build-package.sh.orig
 /clean.sh
+/.github/actions/zram/
 
 # Vim
 [._]*.s[a-w][a-z]
@@ -28,6 +29,7 @@ scripts/.vagrant/
 # Built *.deb files.
 /debs/
 /output/
+/output-chromium/
 
 # Preinstalled build tools.
 /build-tools/
