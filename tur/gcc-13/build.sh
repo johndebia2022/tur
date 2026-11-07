@@ -2,12 +2,12 @@ TERMUX_PKG_HOMEPAGE=http://gcc.gnu.org/
 TERMUX_PKG_DESCRIPTION="GNU C compiler"
 TERMUX_PKG_LICENSE="GPL-3.0"
 TERMUX_PKG_DEPENDS="binutils, libc++, libgmp, libmpfr, libmpc, libisl, zlib"
-TERMUX_PKG_VERSION=13.4.0
-TERMUX_PKG_REVISION=1
+TERMUX_PKG_VERSION=13.5.0
 TERMUX_PKG_MAINTAINER="@licy183"
 TERMUX_PKG_SRCURL=https://mirrors.kernel.org/gnu/gcc/gcc-${TERMUX_PKG_VERSION}/gcc-${TERMUX_PKG_VERSION}.tar.gz
-TERMUX_PKG_SHA256=bf0baf3e570c9c74c17c8201f0196c6924b4bd98c90e69d6b2ac0cd823f33bbc
+TERMUX_PKG_SHA256=ee0c6280fb2e18304cb447a1abb5ed479c74196c75e01cde634489b80bcd172b
 TERMUX_PKG_BREAKS="binutils-is-llvm"
+TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_NO_STATICSPLIT=true
 TERMUX_PKG_ON_DEVICE_BUILD_NOT_SUPPORTED=true
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS+="\
@@ -61,7 +61,13 @@ elif [ "$TERMUX_ARCH" = "x86_64" ]; then
 	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --with-arch=x86-64 --with-fpmath=sse"
 fi
 
-source $TERMUX_SCRIPTDIR/common-files/setup_toolchain_gcc.sh
+source $TERMUX_SCRIPTDIR/common-files/toolchain/setup_toolchain_gcc.sh
+
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/gcc.sh"
+
+termux_pkg_auto_update() {
+	tur_pkg_update_gcc "${TERMUX_PKG_VERSION%%.*}"
+}
 
 termux_step_pre_configure() {
 	export ac_cv_func_aligned_alloc=no
@@ -96,4 +102,17 @@ termux_step_post_make_install() {
 	cp $TERMUX_PKG_TMPDIR/specs $TERMUX_PREFIX/lib/gcc/$TERMUX_HOST_PLATFORM/$TERMUX_PKG_VERSION/
 	# Avoid extract `ndk-sysroot-gcc-compact` at building time.
 	TERMUX_PKG_DEPENDS+=", ndk-sysroot-gcc-compact (>= 26b-3)"
+}
+
+termux_step_create_debscripts() {
+	cat <<-EOF > ./postinst
+		#!$TERMUX_PREFIX/bin/sh
+		echo
+		echo "********"
+		echo "GCC 13 and older no longer receive upstream support or fixes for bugs."
+		echo "Please switch to a newer GCC version or clang."
+		echo "The support for GCC 13 and older will be dropped when Android NDK 31 ships."
+		echo "********"
+		echo
+	EOF
 }

@@ -1,0 +1,52 @@
+diff --git a/crates/engine/src/text_fonts.rs b/crates/engine/src/text_fonts.rs
+index 859bc1a..6b8cbf7 100644
+--- a/crates/engine/src/text_fonts.rs
++++ b/crates/engine/src/text_fonts.rs
+@@ -24,7 +24,7 @@ pub fn installed_directories() -> Vec<PathBuf> {
+         }
+         dirs
+     } else {
+-        let mut dirs = vec![PathBuf::from("/usr/share/fonts"), PathBuf::from("/usr/local/share/fonts")];
++        let mut dirs = vec![PathBuf::from("@TERMUX_PREFIX@/share/fonts"), PathBuf::from("@TERMUX_PREFIX@/local/share/fonts")];
+         if let Some(home) = home {
+             dirs.extend([home.join(".local/share/fonts"), home.join(".fonts")]);
+         }
+diff --git a/crates/print/src/spool.rs b/crates/print/src/spool.rs
+index 5ce3d97..b8b7819 100644
+--- a/crates/print/src/spool.rs
++++ b/crates/print/src/spool.rs
+@@ -19,7 +19,7 @@ pub fn printer_options(printer: &str) -> Vec<PrinterOption> {
+ pub fn printer_options_in(printer: &str, lang: &str) -> Vec<PrinterOption> {
+     #[cfg(all(unix, not(target_arch = "wasm32")))]
+     {
+-        printer_options_via_within(printer, std::path::Path::new("/etc/cups/ppd"), std::process::Command::new("lpoptions"), LPOPTIONS_LIMIT, lang)
++        printer_options_via_within(printer, std::path::Path::new("@TERMUX_PREFIX@/etc/cups/ppd"), std::process::Command::new("lpoptions"), LPOPTIONS_LIMIT, lang)
+     }
+     #[cfg(not(all(unix, not(target_arch = "wasm32"))))]
+     {
+diff --git a/crates/ui-egui/src/platform/system_fonts.rs b/crates/ui-egui/src/platform/system_fonts.rs
+index 4b5e1ec..14a1585 100644
+--- a/crates/ui-egui/src/platform/system_fonts.rs
++++ b/crates/ui-egui/src/platform/system_fonts.rs
+@@ -410,7 +410,7 @@ fn unix_fonts(files: &'static [&'static str]) -> Vec<PathBuf> {
+ 
+ fn unix_candidates(files: &[&str], installed: &[PathBuf]) -> Vec<PathBuf> {
+     let mut paths: Vec<_> =
+-        ["/usr/share/fonts", "/usr/local/share/fonts"].iter().flat_map(|dir| files.iter().map(move |f| Path::new(dir).join(f))).collect();
++        ["@TERMUX_PREFIX@/share/fonts", "@TERMUX_PREFIX@/local/share/fonts"].iter().flat_map(|dir| files.iter().map(move |f| Path::new(dir).join(f))).collect();
+     // Fontconfig may point into /nix/store or a user's font directory. Keep the existing
+     // candidate names and their preference order; this does not select arbitrary fonts.
+     for file in files {
+diff --git a/crates/ui-egui/src/platform/system_fonts/fontconfig.rs b/crates/ui-egui/src/platform/system_fonts/fontconfig.rs
+index 243fec6..0bbaedc 100644
+--- a/crates/ui-egui/src/platform/system_fonts/fontconfig.rs
++++ b/crates/ui-egui/src/platform/system_fonts/fontconfig.rs
+@@ -94,7 +94,7 @@ pub(super) fn config_path() -> PathBuf {
+         return file;
+     }
+     let dir =
+-        std::env::var_os("FONTCONFIG_PATH").and_then(|paths| std::env::split_paths(&paths).next()).unwrap_or_else(|| PathBuf::from("/etc/fonts"));
++        std::env::var_os("FONTCONFIG_PATH").and_then(|paths| std::env::split_paths(&paths).next()).unwrap_or_else(|| PathBuf::from("@TERMUX_PREFIX@/etc/fonts"));
+     dir.join(file)
+ }
+ 

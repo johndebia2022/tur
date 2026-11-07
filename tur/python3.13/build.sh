@@ -4,14 +4,14 @@ TERMUX_PKG_DESCRIPTION="Python 3 programming language intended to enable clear p
 TERMUX_PKG_LICENSE="custom"
 TERMUX_PKG_LICENSE_FILE="LICENSE"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION="3.13.13"
+TERMUX_PKG_VERSION="3.13.18"
 TERMUX_PKG_SRCURL=https://www.python.org/ftp/python/${TERMUX_PKG_VERSION}/Python-${TERMUX_PKG_VERSION}.tar.xz
-TERMUX_PKG_SHA256=2ab91ff401783ccca64f75d10c882e957bdfd60e2bf5a72f8421793729b78a71
-TERMUX_PKG_AUTO_UPDATE=false
+TERMUX_PKG_SHA256=abb0102e6d4ae027509bcb82327d9dd85515b44a3ba8ad538cfc5e9847029f68
 TERMUX_PKG_DEPENDS="gdbm, libandroid-posix-semaphore, libandroid-support, libbz2, libcrypt, libexpat, libffi, liblzma, libsqlite, ncurses, ncurses-ui-libs, openssl, readline, zlib"
 TERMUX_PKG_BUILD_DEPENDS="tk"
 TERMUX_PKG_SUGGESTS="python3.13-tkinter"
 TERMUX_PKG_MAKE_INSTALL_TARGET=altinstall
+TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_HOSTBUILD=true
 
 _MAJOR_VERSION="${TERMUX_PKG_VERSION%.*}"
@@ -64,6 +64,12 @@ TERMUX_PKG_UNDEF_SYMBOLS_FILES="
 ./opt/python$_MAJOR_VERSION/cross/lib/python$_MAJOR_VERSION/lib-dynload/*.so
 "
 
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/python.sh"
+
+termux_pkg_auto_update() {
+	tur_pkg_update_python "${_MAJOR_VERSION}"
+}
+
 termux_step_host_build() {
 	$TERMUX_PKG_SRCDIR/configure $TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS
 	make -j $TERMUX_PKG_MAKE_PROCESSES
@@ -71,7 +77,7 @@ termux_step_host_build() {
 }
 
 termux_step_post_get_source() {
-	patch="$TERMUX_PKG_BUILDER_DIR/0012-hardcode-android-api-level.diff"
+	patch="$TERMUX_PKG_BUILDER_DIR/0011-hardcode-android-api-level.diff"
 	echo "Applying patch: $(basename "$patch")"
 	test -f "$patch" && sed \
 		-e "s%\@TERMUX_PKG_API_LEVEL\@%${TERMUX_PKG_API_LEVEL}%g" \

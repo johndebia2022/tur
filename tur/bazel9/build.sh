@@ -2,10 +2,9 @@ TERMUX_PKG_HOMEPAGE=https://bazel.build/
 TERMUX_PKG_DESCRIPTION="Correct, reproducible, and fast builds for everyone (Version 9)"
 TERMUX_PKG_LICENSE="Apache-2.0"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION="9.2.0"
-TERMUX_PKG_REVISION=2
+TERMUX_PKG_VERSION="9.3.2"
 TERMUX_PKG_SRCURL=https://github.com/bazelbuild/bazel/releases/download/$TERMUX_PKG_VERSION/bazel-$TERMUX_PKG_VERSION-dist.zip
-TERMUX_PKG_SHA256=81af02b33128ec1922c6b60212df3fb6150baa96bb33d32ffa020e5fed47fefc
+TERMUX_PKG_SHA256=53a1cc021ac515b667ab8bf2114b50184fbfc492cd35ff4584b40617a64c7413
 TERMUX_PKG_DEPENDS="libarchive, openjdk-21, patch, unzip, zip"
 TERMUX_PKG_BUILD_DEPENDS="libandroid-spawn-static, patch, unzip, zip"
 TERMUX_PKG_ANTI_BUILD_DEPENDS="openjdk-21"
@@ -95,18 +94,10 @@ termux_step_get_source() {
 	unzip -d "$TERMUX_PKG_SRCDIR" "$TERMUX_PKG_CACHEDIR/${f}" > /dev/null
 }
 
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/bazel.sh"
+
 termux_pkg_auto_update() {
-	local api_url="https://api.github.com/repos/bazelbuild/bazel/git/refs/tags"
-	local latest_refs_tags=$(
-		curl -s "$api_url" | jq -r .[].ref | cut -d'/' -f 3 |
-			grep "^9" | grep -v -E "(rc)|(pre)"
-	)
-	if [[ -z "${latest_refs_tags}" ]]; then
-		echo "WARN: Unable to get latest refs tags from upstream. Try again later." >&2
-		return
-	fi
-	local latest_version=$(echo "${latest_refs_tags}" | sort -V | tail -n1)
-	termux_pkg_upgrade_version "${latest_version}"
+	tur_pkg_update_bazel 9
 }
 
 termux_step_post_get_source() {

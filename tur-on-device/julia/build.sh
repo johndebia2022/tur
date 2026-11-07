@@ -1,0 +1,115 @@
+TERMUX_PKG_HOMEPAGE=https://julialang.org/
+TERMUX_PKG_DESCRIPTION="High-level, high-performance dynamic language for technical computing"
+TERMUX_PKG_LICENSE="MIT"
+TERMUX_PKG_MAINTAINER="@termux-user-repository"
+TERMUX_PKG_VERSION=1.10.13
+TERMUX_PKG_SRCURL=https://github.com/JuliaLang/julia/releases/download/v${TERMUX_PKG_VERSION}/julia-${TERMUX_PKG_VERSION}-full.tar.gz
+TERMUX_PKG_SHA256=0da3e533088cda340a82d25a9fac32cecf2dd136b81a559b8e51ec0fb70612c1
+TERMUX_PKG_AUTO_UPDATE=false
+TERMUX_PKG_DEPENDS="libandroid-execinfo, libcurl, libedit, libgit2, libgmp, libmpfr, libnghttp2, libopenblas, libssh2, mbedtls, openspecfun, pcre2, suitesparse, utf8proc, zlib, zstd"
+TERMUX_PKG_BUILD_DEPENDS="7zip"
+TERMUX_PKG_BUILD_IN_SRC=true
+# Julia's system image (sys.so), stdlib precompiled cache images (*.so),
+# and internal runtime libraries contain undefined symbols resolved at runtime
+# when dynamically loaded by the Julia process via dlopen().
+# https://docs.julialang.org/en/v1/devdocs/eval/#dev-sysimg
+TERMUX_PKG_UNDEF_SYMBOLS_FILES="
+./lib/julia/sys.so
+./lib/julia/libunwind*.so*
+./lib/libjulia-internal.so*
+./lib/libjulia-codegen.so*
+./share/julia/compiled/*/*/*.so
+"
+
+termux_step_post_get_source() {
+	mkdir -p "$TERMUX_PKG_SRCDIR/stdlib/OpenSpecFun_jll/src"
+	cp "$TERMUX_PKG_BUILDER_DIR/Project.toml" "$TERMUX_PKG_SRCDIR/stdlib/OpenSpecFun_jll/"
+	cp "$TERMUX_PKG_BUILDER_DIR/OpenSpecFun_jll.jl" "$TERMUX_PKG_SRCDIR/stdlib/OpenSpecFun_jll/src/"
+}
+
+termux_step_pre_configure() {
+	if [[ "${TERMUX_ON_DEVICE_BUILD}" == "false" ]]; then
+		termux_error_exit "This package doesn't support cross-compiling."
+	fi
+
+	termux_setup_cmake
+	termux_setup_ninja
+
+	local _march=""
+	local _cpu_target="generic"
+	case "$TERMUX_ARCH" in
+		"aarch64") _cpu_target="generic;cortex-a57;thunderx2t99;armv8.2-a,crypto;cortex-a76" ;;
+		"arm")     _cpu_target="armv7-a,neon;armv7-a,neon,vfp4" ;;
+		"i686")    _cpu_target="pentium4;core2"; _march="pentium4" ;;
+		"x86_64")  _cpu_target="generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,clone_all;skylake;avx512" ;;
+	esac
+
+	cat <<- EOF > Make.user
+		ARCH = ${TERMUX_ARCH}
+		MARCH = ${_march}
+		JULIA_CPU_TARGET = ${_cpu_target}
+		OS = Linux
+		CMAKE_GENERATOR = Ninja
+		USECLANG = 1
+		USE_SYSTEM_BLAS = 1
+		USE_SYSTEM_LAPACK = 1
+		override USE_BLAS64 = 0
+		LIBBLASNAME = libopenblas
+		LIBLAPACKNAME = libopenblas
+		USE_INTEL_JITEVENTS = 0
+		USE_PERF_JITEVENTS = 0
+		USE_OPROFILE_JITEVENTS = 0
+		WITH_ITTAPI = 0
+		USE_SYSTEM_LIBSUITESPARSE = 1
+		USE_SYSTEM_LIBGIT2 = 1
+		USE_SYSTEM_MBEDTLS = 1
+		USE_SYSTEM_LIBSSH2 = 1
+		USE_SYSTEM_NGHTTP2 = 1
+		USE_SYSTEM_CURL = 1
+		USE_SYSTEM_GMP = 1
+		USE_SYSTEM_MPFR = 1
+		USE_SYSTEM_PCRE = 1
+		USE_SYSTEM_UTF8PROC = 1
+		USE_SYSTEM_ZLIB = 1
+		USE_SYSTEM_P7ZIP = 1
+		USE_SYSTEM_LIBUV = 0
+		USE_SYSTEM_LIBUNWIND = 0
+		USE_SYSTEM_DSFMT = 0
+		USE_SYSTEM_LIBBLASTRAMPOLINE = 0
+		USE_SYSTEM_OPENLIBM = 0
+		USE_SYSTEM_LLVM = 0
+		USE_SYSTEM_CSL = 1
+		DISABLE_CSL = 1
+		USE_BINARYBUILDER = 0
+		JULIA_PRECOMPILE = 0
+		LDFLAGS += -Wl,--undefined-version
+		OSLIBS += \$(shell \$(CC) -print-libgcc-file-name)
+		SHELL := ${TERMUX_PREFIX}/bin/sh
+	EOF
+}
+
+termux_step_make() {
+	unset MAKEFLAGS
+	make -j"${TERMUX_PKG_MAKE_PROCESSES}" prefix="${TERMUX_PREFIX}"
+}
+
+termux_step_make_install() {
+	unset MAKEFLAGS
+	make install prefix="${TERMUX_PREFIX}"
+
+	local _patchelf="${TERMUX_PKG_BUILDDIR}/usr/tools/patchelf"
+	if [ ! -f "$_patchelf" ]; then
+		_patchelf="$(command -v patchelf || true)"
+	fi
+	if [ -n "$_patchelf" ]; then
+		for l in "${TERMUX_PREFIX}/lib/julia"/libLLVM*.so*; do
+			[ -f "$l" ] && [ ! -L "$l" ] && "$_patchelf" --set-rpath '$ORIGIN:$ORIGIN/..' "$l" || true
+		done
+	fi
+
+	# Install OpenSpecFun_jll standard library shim
+	local _shim_dir="${TERMUX_PREFIX}/share/julia/stdlib/v$(echo ${TERMUX_PKG_VERSION} | cut -d. -f1-2)/OpenSpecFun_jll"
+	mkdir -p "${_shim_dir}/src"
+	cp "$TERMUX_PKG_BUILDER_DIR/Project.toml" "${_shim_dir}/"
+	cp "$TERMUX_PKG_BUILDER_DIR/OpenSpecFun_jll.jl" "${_shim_dir}/src/"
+}

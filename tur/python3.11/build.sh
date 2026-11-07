@@ -4,14 +4,14 @@ TERMUX_PKG_DESCRIPTION="Python programming language intended to enable clear pro
 TERMUX_PKG_LICENSE="custom"
 TERMUX_PKG_LICENSE_FILE="LICENSE"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION=3.11.16
+TERMUX_PKG_VERSION=3.11.18
 TERMUX_PKG_SRCURL=https://www.python.org/ftp/python/${TERMUX_PKG_VERSION}/Python-${TERMUX_PKG_VERSION}.tar.xz
-TERMUX_PKG_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8
-TERMUX_PKG_AUTO_UPDATE=false
+TERMUX_PKG_SHA256=9120e0a653868f6e3698d36cdd99e5a58903ec9469e448f21d98f7b16d8fa290
 TERMUX_PKG_DEPENDS="gdbm, libandroid-posix-semaphore, libandroid-support, libbz2, libcrypt, libexpat, libffi, liblzma, libsqlite, ncurses, ncurses-ui-libs, openssl, readline, zlib"
 TERMUX_PKG_BUILD_DEPENDS="tk"
 TERMUX_PKG_SUGGESTS="python3.11-tkinter"
 TERMUX_PKG_MAKE_INSTALL_TARGET=altinstall
+TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_HOSTBUILD=true
 
 # https://github.com/termux/termux-packages/issues/15908
@@ -58,6 +58,12 @@ TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS="
 TERMUX_PKG_UNDEF_SYMBOLS_FILES="
 ./opt/python$_MAJOR_VERSION/cross/lib/python$_MAJOR_VERSION/lib-dynload/*.so
 "
+
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/python.sh"
+
+termux_pkg_auto_update() {
+	tur_pkg_update_python "${_MAJOR_VERSION}"
+}
 
 termux_step_host_build() {
 	$TERMUX_PKG_SRCDIR/configure $TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS

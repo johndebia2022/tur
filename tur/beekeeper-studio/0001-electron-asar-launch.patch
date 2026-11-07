@@ -1,0 +1,38 @@
+diff --git a/apps/studio/src/common/bksConfig/mainBksConfig.ts b/apps/studio/src/common/bksConfig/mainBksConfig.ts
+index 2104492..b8cc1cc 100644
+--- a/apps/studio/src/common/bksConfig/mainBksConfig.ts
++++ b/apps/studio/src/common/bksConfig/mainBksConfig.ts
+@@ -130,7 +130,7 @@ export function checkDeprecations(
+   return results;
+ }
+ 
+-const bundledConfigPath = path.join(process.resourcesPath);
++const bundledConfigPath = path.join(process.env.BKS_RESOURCES_PATH || process.resourcesPath);
+ 
+ function copyBundledConfig(file: ConfigFileName, dest: string) {
+   log.info(`Copying bundled config ${file} to ${dest}.`);
+diff --git a/apps/studio/src/common/platform_info/mainPlatformInfo.ts b/apps/studio/src/common/platform_info/mainPlatformInfo.ts
+index 90b0c29..3a97779 100644
+--- a/apps/studio/src/common/platform_info/mainPlatformInfo.ts
++++ b/apps/studio/src/common/platform_info/mainPlatformInfo.ts
+@@ -47,7 +47,10 @@ export function mainPlatformInfo(): IPlatformInfo {
+   const e = require('electron')
+   const platform = p.env.OS_OVERRIDE ? p.env.OS_OVERRIDE : p.platform
+   const testMode = p.env.TEST_MODE ? true : false
+-  const isDevEnv = testMode ? false : !e.app.isPackaged;
++  // Termux runs app.asar through the shared electron binary, so isPackaged
++  // is always false there and resourcesPath points to electron's own dir
++  const resourcesOverride = p.env.BKS_RESOURCES_PATH
++  const isDevEnv = testMode ? false : (!e.app.isPackaged && !resourcesOverride);
+   const isWindows = platform === 'win32'
+   const isMac = platform === 'darwin'
+   const isArm = p.arch.startsWith('arm')
+@@ -65,7 +68,7 @@ export function mainPlatformInfo(): IPlatformInfo {
+   // ships no thick-mode binary for it, so Oracle connects in thin mode there.
+   const oracleInstantClientSupported = !(isWindows && p.arch === 'arm64')
+ 
+-  const resourcesPath = isDevEnv ? resolve('./extra_resources') : resolve(p.resourcesPath)
++  const resourcesPath = isDevEnv ? resolve('./extra_resources') : resolve(resourcesOverride || p.resourcesPath)
+   let userDirectory = testMode ? './tmp' : e.app.getPath("userData")
+   const downloadsDirectory = testMode ? './tmp' : e.app.getPath('downloads')
+   const homeDirectory = testMode ? './tmp' : e.app.getPath('home')

@@ -2,12 +2,12 @@ TERMUX_PKG_HOMEPAGE=http://gcc.gnu.org/
 TERMUX_PKG_DESCRIPTION="GNU C compiler"
 TERMUX_PKG_LICENSE="GPL-3.0"
 TERMUX_PKG_DEPENDS="binutils, libc++, libgmp, libmpfr, libmpc, libisl, zlib"
-TERMUX_PKG_VERSION="15.2.0"
-TERMUX_PKG_REVISION=1
+TERMUX_PKG_VERSION="15.3.0"
 TERMUX_PKG_MAINTAINER="@licy183"
 TERMUX_PKG_SRCURL="https://mirrors.kernel.org/gnu/gcc/gcc-${TERMUX_PKG_VERSION}/gcc-${TERMUX_PKG_VERSION}.tar.gz"
-TERMUX_PKG_SHA256=7294d65cc1a0558cb815af0ca8c7763d86f7a31199794ede3f630c0d1b0a5723
+TERMUX_PKG_SHA256=d6c1a7d2da0f2a3bc52c7d02fdd4a531ead78fd694dd31cae1ca532cf5e2b7e3
 TERMUX_PKG_BREAKS="binutils-is-llvm"
+TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_NO_STATICSPLIT=true
 TERMUX_PKG_ON_DEVICE_BUILD_NOT_SUPPORTED=true
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS+="\
@@ -61,7 +61,13 @@ elif [ "$TERMUX_ARCH" = "x86_64" ]; then
 	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --with-arch=x86-64 --with-fpmath=sse"
 fi
 
-source $TERMUX_SCRIPTDIR/common-files/setup_toolchain_gcc.sh
+source $TERMUX_SCRIPTDIR/common-files/toolchain/setup_toolchain_gcc.sh
+
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/gcc.sh"
+
+termux_pkg_auto_update() {
+	tur_pkg_update_gcc "${TERMUX_PKG_VERSION%%.*}"
+}
 
 termux_step_pre_configure() {
 	export ac_cv_func_aligned_alloc=no
@@ -86,10 +92,6 @@ termux_step_pre_configure() {
 
 	# Add host and target flag
 	TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" --host=$TERMUX_HOST_PLATFORM --target=$TERMUX_HOST_PLATFORM"
-}
-
-termux_step_make() {
-	make -j $(nproc) || bash
 }
 
 termux_step_post_make_install() {

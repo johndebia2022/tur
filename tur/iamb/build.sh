@@ -2,14 +2,16 @@ TERMUX_PKG_HOMEPAGE=https://iamb.chat/
 TERMUX_PKG_DESCRIPTION="A terminal-based client for Matrix for the Vim addict"
 TERMUX_PKG_LICENSE="Apache-2.0"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
-TERMUX_PKG_VERSION="0.0.12"
+TERMUX_PKG_VERSION="0.13.1"
 TERMUX_PKG_SRCURL="https://github.com/ulyssa/iamb/archive/refs/tags/v$TERMUX_PKG_VERSION.tar.gz"
-TERMUX_PKG_SHA256=54e3e87eece1aff22e9d6bd6798492a1d23ea5e831e9d0889b51272c7d4f6cdb
+TERMUX_PKG_SHA256=8e919c19ef90f328d20e6e46720a26f0dea6e61901b8180fedbbacb473f131f1
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_AUTO_UPDATE=true
 
 termux_step_pre_configure() {
 	termux_setup_rust
+
+	export VERGEN_GIT_SHA="VERGEN_IDEMPOTENT_OUTPUT"
 
 	if [ "$TERMUX_ARCH" = "x86_64" ]; then
 		RUSTFLAGS+=" -C link-arg=$($CC -print-libgcc-file-name)"

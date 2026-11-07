@@ -2,21 +2,31 @@ TERMUX_PKG_HOMEPAGE=https://www.chromium.org/Home
 TERMUX_PKG_DESCRIPTION="Chromium web browser"
 TERMUX_PKG_LICENSE="BSD 3-Clause"
 TERMUX_PKG_MAINTAINER="@licy183"
-TERMUX_PKG_VERSION=152.0.7977.82
-TERMUX_PKG_SRCURL=https://commondatastorage.googleapis.com/chromium-browser-official/chromium-$TERMUX_PKG_VERSION-lite.tar.xz
-TERMUX_PKG_SHA256=67ac37f365dfdac763c428862e5e460e5948940b3d6f856374da2ce219981417
+TERMUX_PKG_VERSION="157.0.8103.15"
+TERMUX_PKG_SRCURL="https://github.com/chromium-linux-tarballs/chromium-tarballs/releases/download/$TERMUX_PKG_VERSION/chromium-$TERMUX_PKG_VERSION-linux.tar.xz"
+TERMUX_PKG_SHA256=61d94fbc36f816e15834f6392d6c28daa33d5ce0661ff4efe4b9afd8bf857574
 TERMUX_PKG_DEPENDS="atk, cups, dbus, fontconfig, gtk3, krb5, libc++, libevdev, libxkbcommon, libminizip, libnss, libx11, mesa, openssl, pango, pipewire, pulseaudio, zlib"
 TERMUX_PKG_BUILD_DEPENDS="chromium-beta-host-tools, libffi-static"
-# TODO: Split chromium-common and chromium-headless
-# TERMUX_PKG_DEPENDS+=", chromium-common"
-# TERMUX_PKG_SUGGESTS="chromium-headless, chromium-driver"
 # Chromium doesn't support i686 on Linux.
 TERMUX_PKG_EXCLUDED_ARCHES="i686"
-TERMUX_PKG_AUTO_UPDATE=false
+TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_ON_DEVICE_BUILD_NOT_SUPPORTED=true
 
 SYSTEM_LIBRARIES="    fontconfig"
 # TERMUX_PKG_DEPENDS="fontconfig"
+
+termux_pkg_auto_update() {
+	local latest_version="$(. $TERMUX_SCRIPTDIR/tur/chromium-beta-host-tools/build.sh; echo ${TERMUX_PKG_VERSION})"
+
+	if ! termux_pkg_is_update_needed \
+		"${TERMUX_PKG_VERSION#*:}" "${latest_version}"; then
+		echo "INFO: No update needed. Already at version '${latest_version}'."
+		return 0
+	fi
+
+	termux_error_exit \
+		"Chromium Beta version ${latest_version} is available. Please update manually."
+}
 
 termux_step_post_get_source() {
 	# Apply patches related to chromium
@@ -46,7 +56,7 @@ termux_step_post_get_source() {
 		$SYSTEM_LIBRARIES
 
 	# Remove the source file to keep more space
-	rm -f "$TERMUX_PKG_CACHEDIR/chromium-$TERMUX_PKG_VERSION-lite.tar.xz"
+	rm -f "$TERMUX_PKG_CACHEDIR/chromium-$TERMUX_PKG_VERSION-linux.tar.xz"
 }
 
 termux_step_pre_configure() {
@@ -103,6 +113,7 @@ EOF
 	ln -sf $(command -v java) third_party/jdk/current/bin/
 	mkdir -p third_party/dawn/tools/golang/linux-amd64/bin/
 	ln -sf $(command -v go) third_party/dawn/tools/golang/linux-amd64/bin/
+
 	# Install nodejs
 	if [ ! -f "third_party/node/linux/node-linux-x64/bin/node" ]; then
 		./third_party/node/update_node_binaries
@@ -128,16 +139,6 @@ print(deps['src/third_party/node/node_modules']['objects'][0]['sha256sum'])
 		mkdir -p $TERMUX_PKG_SRCDIR/third_party/node/node_modules-tmp
 		tar -xf "$_npm_file" --strip-components=1 -C "$TERMUX_PKG_SRCDIR/third_party/node/node_modules-tmp"
 		mv "$TERMUX_PKG_SRCDIR/third_party/node/node_modules-tmp" "$TERMUX_PKG_SRCDIR/third_party/node/node_modules"
-	fi
-
-	# Sync rollup-related native deps in devtools
-	if [ ! -d "third_party/devtools-frontend/src/node_modules/@rollup/rollup-linux-x64-gnu" ]; then
-		if [ ! -f "third_party/devtools-frontend/src/third_party/rollup_libs/rollup.linux-x64-gnu.node" ]; then
-			termux_error_exit "rollup.linux-x64-gnu.node not found"
-		fi
-		pushd third_party/devtools-frontend/src
-		python3 scripts/deps/sync_rollup_libs.py
-		popd # third_party/devtools-frontend/src
 	fi
 
 	local CARGO_TARGET_NAME="${TERMUX_ARCH}-linux-android"
@@ -262,6 +263,9 @@ ozone_platform_headless = true
 angle_enable_vulkan = true
 angle_enable_swiftshader = true
 angle_enable_abseil = false
+# Disable vulkan validation layers, which is almost useless
+angle_enable_vulkan_validation_layers = false
+dawn_enable_vulkan_validation_layers = false
 # Use Chrome-branded ffmpeg for more codecs
 is_component_ffmpeg = true
 ffmpeg_branding = \"Chrome\"
@@ -285,6 +289,8 @@ exclude_unwind_tables = false
 use_jumbo_build = true
 # Compile pdfium as a static library
 pdf_is_complete_lib = true
+# Disable v8's metagen
+v8_use_metagen = false
 " > $_common_args_file
 
 	if [ "$TERMUX_ARCH" = "arm" ]; then
@@ -328,6 +334,7 @@ pdf_is_complete_lib = true
 
 termux_step_make() {
 	cd $TERMUX_PKG_BUILDDIR
+
 	# Build v8 snapshot in another action
 	time ninja -C out/Release \
 						v8_context_snapshot \
@@ -335,6 +342,7 @@ termux_step_make() {
 						run_torque \
 						generate_bytecode_builtins_list \
 						v8:run_gen-regexp-special-case
+
 	# Build generate steps in another action
 	time ninja -C out/Release \
 						generate_top_domain_list_variables_file \
@@ -342,11 +350,14 @@ termux_step_make() {
 						character_data \
 						gen_root_store_inc \
 						generate_transport_security_state \
+						generate_transport_security_state_pins \
 						generate_top_domains_trie
+
 	# Build swiftshader in another action
 	time ninja -C out/Release \
 						third_party/swiftshader/src/Vulkan:icd_file \
 						third_party/swiftshader/src/Vulkan:swiftshader_libvulkan
+
 	# Build pdfium in another action
 	time ninja -C out/Release \
 						third_party/pdfium \
@@ -366,7 +377,6 @@ termux_step_make_install() {
 		chrome_crashpad_handler
 		headless_shell
 		chromedriver
-		generate_colors_info
 
 		# Resource files
 		chrome_100_percent.pak
@@ -396,7 +406,7 @@ termux_step_make_install() {
 		libvulkan.so.1
 		libVkICD_mock_icd.so
 		libvk_swiftshader.so
-		libVkLayer_khronos_validation.so
+		# libVkLayer_khronos_validation.so
 		vk_swiftshader_icd.json
 
 		# FFmpeg
@@ -422,9 +432,6 @@ termux_step_post_make_install() {
 	# Remove the dummy files
 	rm $TERMUX_PREFIX/lib/lib{{pthread,resolv,ffi_pic}.a,rt.so}
 }
-
-# TODO:
-# (2) Split packages
 
 # ######################### About system libraries ############################
 # We only pick up a few libraries to let chromium link against. Others may

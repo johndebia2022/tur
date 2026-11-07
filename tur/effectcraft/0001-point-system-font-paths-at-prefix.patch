@@ -1,0 +1,15 @@
+diff --git a/crates/text/src/font_dirs.rs b/crates/text/src/font_dirs.rs
+index 3069494..88456a4 100644
+--- a/crates/text/src/font_dirs.rs
++++ b/crates/text/src/font_dirs.rs
+@@ -39,8 +39,8 @@ impl FontEnv {
+             fontconfig_path: var("FONTCONFIG_PATH"),
+             fontconfig_roots: ["/etc/fonts/fonts.conf", "/usr/local/etc/fonts/fonts.conf"].map(PathBuf::from).to_vec(),
+             fixed: [
+-                "/usr/share/fonts",
+-                "/usr/local/share/fonts",
++                "@TERMUX_PREFIX@/share/fonts",
++                "@TERMUX_PREFIX@/local/share/fonts",
+                 // Flatpak: the host's system, local and user fonts (no filesystem permission needed).
+                 "/run/host/fonts",
+                 "/run/host/local-fonts",

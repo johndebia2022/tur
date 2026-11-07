@@ -10,6 +10,8 @@ TERMUX_PKG_DEPENDS="gdbm, libandroid-posix-semaphore, libandroid-support, libbz2
 TERMUX_PKG_RECOMMENDS="clang, make, pkg-config"
 TERMUX_PKG_SUGGESTS="python${_MAJOR_VERSION}-tkinter"
 TERMUX_PKG_BREAKS="python2 (<= 2.7.15)"
+# Python 3.7 has been deprecated since 2023-06-27.
+TERMUX_PKG_AUTO_UPDATE=false
 TERMUX_PKG_HOSTBUILD=true
 # Set ac_cv_func_wcsftime=no to avoid errors such as "character U+ca0025 is not in range [U+0000; U+10ffff]"
 # when executing e.g. "from time import time, strftime, localtime; print(strftime(str('%Y-%m-%d %H:%M'), localtime()))"
@@ -45,6 +47,12 @@ lib/python${_MAJOR_VERSION}/*/tests
 TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS="
 --prefix=$TERMUX_PREFIX/opt/python$_MAJOR_VERSION/cross
 "
+
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/python.sh"
+
+termux_pkg_auto_update() {
+	tur_pkg_update_python "${_MAJOR_VERSION}"
+}
 
 termux_step_host_build() {
 	LN="ln -s" $TERMUX_PKG_SRCDIR/configure $TERMUX_PKG_EXTRA_HOSTBUILD_CONFIGURE_ARGS

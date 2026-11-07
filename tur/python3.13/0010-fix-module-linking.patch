@@ -1,0 +1,12 @@
+Based off https://github.com/msys2-contrib/cpython-mingw/commit/e719663e07d6655e042f9c48910c65606cc4ae5e
+--- a/Modules/makesetup
++++ b/Modules/makesetup
+@@ -274,7 +274,7 @@
+ 				;;
+ 			esac
+ 			rule="$file: $objs"
+-			rule="$rule; \$(BLDSHARED) $objs $libs \$(MODULE_LDFLAGS_SHARED) -o $file"
++			rule="$rule; \$(BLDSHARED) $objs $libs \$(BLDLIBRARY) -o $file"
+ 			echo "$rule" >>$rulesf
+ 		done
+ 	done

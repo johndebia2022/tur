@@ -13,7 +13,8 @@ TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_EXCLUDED_ARCHES="arm, i686"
 TERMUX_PKG_NO_STRIP=true
 TERMUX_PKG_ON_DEVICE_BUILD_NOT_SUPPORTED=true
-TERMUX_PKG_AUTO_UPDATE=true
+# `bazel6` has been deprecated since Dec 2025.
+TERMUX_PKG_AUTO_UPDATE=false
 
 __sed_verbose() {
 	local path=$1; shift;
@@ -94,18 +95,10 @@ termux_step_get_source() {
 	unzip -d "$TERMUX_PKG_SRCDIR" "$TERMUX_PKG_CACHEDIR/${f}" > /dev/null
 }
 
+source "$TERMUX_SCRIPTDIR/common-files/package-update-scripts/bazel.sh"
+
 termux_pkg_auto_update() {
-	local api_url="https://api.github.com/repos/bazelbuild/bazel/git/refs/tags"
-	local latest_refs_tags=$(
-		curl -s "$api_url" | jq -r .[].ref | cut -d'/' -f 3 |
-			grep "^6" | grep -v -E "(rc)|(pre)"
-	)
-	if [[ -z "${latest_refs_tags}" ]]; then
-		echo "WARN: Unable to get latest refs tags from upstream. Try again later." >&2
-		return
-	fi
-	local latest_version=$(echo "${latest_refs_tags}" | sort -V | tail -n1)
-	termux_pkg_upgrade_version "${latest_version}"
+	tur_pkg_update_bazel 6
 }
 
 termux_step_post_get_source() {
